@@ -1,0 +1,49 @@
+# docker compose up    the app + a local SaaS Custom Domains mock
+services:
+  app:
+    build: .
+    ports: ["${APP_PORT:-4000}:4000"]
+    environment:
+      # "app" is how the mock's webhooks reach this container.
+      APP_HOSTS: localhost,app
+      APP_DOMAIN: eventpage.app
+      PHX_HOST: localhost
+      # Local only. Generate your own with `mix phx.gen.secret`.
+      SECRET_KEY_BASE: local-only-secret-key-base-local-only-secret-key-base-local-only-0000
+      SCD_API_URL: http://scd-mock:4010
+      SCD_API_TOKEN: scd_test_token
+      SCD_ACCOUNT_UUID: acc_local
+      SCD_UPSTREAM_UUID: upstream_local
+      PROXY_AUTH_TOKEN: local_proxy_token
+      SCD_WEBHOOK_TOKEN: local_webhook_token
+      # Locally everything is plain HTTP, so don't redirect to HTTPS.
+      FORCE_SSL: "false"
+    volumes: [data:/app/data]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4000/up"]
+      interval: 2s
+      retries: 30
+
+  # Stands in for SaaS Custom Domains: the API on :4010 and the proxy
+  # on port 80, so http://anything.localhost reaches your app the way
+  # a customer's domain would.
+  scd-mock:
+    image: ghcr.io/saas-custom-domains/scd-mock:latest
+    ports:
+      - "${SCD_MOCK_API_PORT:-4010}:4010"
+      - "${SCD_MOCK_PROXY_PORT:-80}:4080"
+    environment:
+      SCD_MOCK_UPSTREAM_HOST: app
+      SCD_MOCK_UPSTREAM_PORT: 4000
+      SCD_MOCK_UPSTREAM_AUTH_TOKEN: local_proxy_token
+      SCD_MOCK_WEBHOOK_URL: http://app:4000/api/webhooks/saascustomdomains
+      SCD_MOCK_WEBHOOK_TOKEN: local_webhook_token
+      # Test domains under .test count as pointed at the proxy.
+      SCD_MOCK_VALID_HOSTS: "*.test"
+      # Production always sends X-Forwarded-Proto: https. The mock is plain
+      # HTTP, and with "https" Phoenix marks the session cookie Secure,
+      # the browser drops it on http://, and LiveView can't connect.
+      SCD_MOCK_FORWARDED_PROTO: http
+
+volumes:
+  data:
