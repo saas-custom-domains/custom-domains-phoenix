@@ -59,7 +59,7 @@ defmodule Eventpage.MixProject do
        depth: 1},
       {:daisyui,
        github: "saadeghi/daisyui",
-       tag: "v5.5.20",
+       tag: "v5.8.2",
        sparse: "packages/bundle",
        app: false,
        compile: false,
